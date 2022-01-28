@@ -7,11 +7,9 @@ import (
 	"gopkg.in/auth0.v5/management"
 )
 
-const client_id = "4u1wwfRwA963ifLbXpkbhGja0QCVJdUj"
-const client_secret = "Ze_L6GbldL-DPS5NwV0DLl9PNp9woqHmJ1fSqNee8Qw89mUOPN2UWBmhAlIjijZh"
+const client_id = "client_id"
+const client_secret = "client_secret"
 
-//const client_id = "JqloGhgICYcmrd4e0CD5ROBp2MC4dpvF"
-//const client_secret = "1NSqQ-mzfPwVpEER5Ux1iAC-IWEZWxclPAz5vnLuWDdK-WHRkQADRUXmPglRddkO"
 
 const domain = "dd3.us.auth0.com"
 

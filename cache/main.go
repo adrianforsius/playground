@@ -7,45 +7,45 @@ import (
 )
 
 type bucket struct {
-	items map[uint32]string
+	items map[int]string
 	mu    *sync.RWMutex
 }
 
-func (b bucket) Get(key uint32) string {
+func (b bucket) Get(key int) string {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	return b.items[key]
 }
 
-func (b bucket) Add(key uint32, val []byte) {
+func (b bucket) Add(key int, val string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.items[key] = string(val)
 }
 
 type Cache struct {
-	buckets map[uint32]bucket
+	buckets map[int]bucket
 	mu      sync.RWMutex
 }
 
-func (c *Cache) Add(val []byte) uint32 {
+func (c *Cache) Add(val string) int {
 	h := fnv.New32a()
-	h.Write(val)
-	key := h.Sum32()
+	h.Write([]byte(val))
+	key := int(h.Sum32())
 	c.buckets[key%256].Add(key, val)
 	return key
 }
 
-func (c *Cache) Get(key uint32) string {
+func (c *Cache) Get(key int) string {
 	return c.buckets[key%256].Get(key)
 }
 
 func New() *Cache {
-	c := Cache{buckets: make(map[uint32]bucket)}
+	c := Cache{buckets: make(map[int]bucket)}
 	for i := 0; i < 256; i++ {
-		c.buckets[uint32(i)] = bucket{
+		c.buckets[i] = bucket{
 			mu:    &sync.RWMutex{},
-			items: make(map[uint32]string),
+			items: make(map[int]string),
 		}
 	}
 	return &c
@@ -53,9 +53,9 @@ func New() *Cache {
 
 func main() {
 	c := New()
-	key1 := c.Add([]byte("hearaasjdas jkdasdj k asd "))
-	key2 := c.Add([]byte("hearaasjdas afcvassdf k asd "))
-	key3 := c.Add([]byte("hearaasjdas xsada k asd "))
+	key1 := c.Add("hearaasjdas jkdasdj k asd ")
+	key2 := c.Add("hearaasjdas jkdasdj k asd  ASssSDASssda ")
+	key3 := c.Add("hearaasjdas jkdasdj k ")
 
 	fmt.Println(c.Get(key1))
 	fmt.Println(c.Get(key2))

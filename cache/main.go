@@ -1,15 +1,14 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"hash/fnv"
 	"sync"
 	"time"
 )
 
-const EXPIRATION = 1
-const GARBAGE_COLLECTOR = 2
+const EXPIRATION = 60 * 3
+const GARBAGE_COLLECTOR = 30
 
 type item struct {
 	expire time.Time
@@ -26,7 +25,7 @@ func (b bucket) Get(key int) (string, error) {
 	defer b.mu.RUnlock()
 	item, ok := b.items[key]
 	if !ok {
-		return "", errors.New("not found")
+		return "", fmt.Errorf("not found (%d), %+v", key, b.items)
 	}
 	return item.value, nil
 }
@@ -44,8 +43,10 @@ type Cache struct {
 }
 
 func (c *Cache) Add(val string) int {
+	// Add time to trigger weight
+	time.Sleep(time.Millisecond)
+
 	h := fnv.New32a()
-	time.Sleep(time.Millisecond * 100)
 	h.Write([]byte(val))
 	key := int(h.Sum32())
 	c.buckets[key%256].Add(key, val)
@@ -53,7 +54,8 @@ func (c *Cache) Add(val string) int {
 }
 
 func (c *Cache) Get(key int) (string, error) {
-	time.Sleep(time.Millisecond * 100)
+	// Add time to trigger weight
+	time.Sleep(time.Millisecond)
 	return c.buckets[key%256].Get(key)
 }
 
@@ -86,29 +88,17 @@ func New() *Cache {
 	return &c
 }
 
-type add struct {
-	key   int
-	value string
-}
-
-type get struct {
-	key   int
-	value string
-	err   error
-}
-
 // Weight is to balance read and write on a 80/20 basis
-func NewWeight(cache Cacher) *Weight {
-	addChan := make(chan add)
-	getChan := make(chan get)
+func NewWeight(cache Cacher) Cacher {
+	addChan := make(chan int)
+	getChan := make(chan int)
 	go func() {
 		read := 0
 		for {
 			if read < 4 {
 				select {
-				case r := <-getChan:
-					val, err := cache.Get(r.key)
-					getChan <- get{value: val, err: err}
+				case <-getChan:
+					getChan <- 1
 					read++
 				default:
 				}
@@ -116,17 +106,16 @@ func NewWeight(cache Cacher) *Weight {
 
 			read = 0
 			select {
-			case r := <-addChan:
-				addChan <- add{key: cache.Add(r.value)}
+			case <-addChan:
+				addChan <- 1
 			default:
 			}
 
 			select {
-			case r := <-addChan:
-				addChan <- add{key: cache.Add(r.value)}
-			case r := <-getChan:
-				val, err := cache.Get(r.key)
-				getChan <- get{value: val, err: err}
+			case <-addChan:
+				addChan <- 1
+			case <-getChan:
+				getChan <- 1
 			default:
 			}
 
@@ -139,20 +128,22 @@ func NewWeight(cache Cacher) *Weight {
 
 type Weight struct {
 	cache Cacher
-	add   chan add
-	get   chan get
+	add   chan int
+	get   chan int
 }
 
 func (w *Weight) Add(val string) int {
-	w.add <- add{value: val}
-	resp := <-w.add
-	return resp.key
+	w.add <- 1
+	<-w.add
+	fmt.Println("adding value")
+	return w.cache.Add(val)
 }
 
 func (w *Weight) Get(key int) (string, error) {
-	w.get <- get{key: key}
-	resp := <-w.get
-	return resp.value, resp.err
+	w.get <- 1
+	<-w.get
+	fmt.Println("getting value")
+	return w.cache.Get(key)
 }
 
 type Cacher interface {
@@ -167,38 +158,55 @@ func main() {
 	key2 := c.Add("hearaasjdas jkdasdj k asd  ASssSDASssda ")
 	key3 := c.Add("hearaasjdas jkdasdj k ")
 
-	for i := 0; i < 5_000; i++ {
-		go func(i int) {
-			val, err := c.Get(key1)
-			if err != nil {
-				fmt.Println("error with key", key1, val, err)
-			}
-			fmt.Println("got value!")
-			if i%3 == 0 {
-				c.Add(fmt.Sprintf("hearaasjdas jkdasdj k  %d", i))
-			}
-			fmt.Println("added value!")
-		}(i)
-	}
-
 	var err error
 	val1, err := c.Get(key1)
 	if err != nil {
 		fmt.Println("error with key", key1)
 	}
-	fmt.Println("val1", val1)
-
-	time.Sleep(time.Second * 3)
+	fmt.Println("val1", val1, "key1", key1)
 
 	val2, err := c.Get(key2)
 	if err != nil {
 		fmt.Println("error with key", key2)
 	}
-	fmt.Println("val2", val2)
+	fmt.Println("val2", val2, "key2", key2)
 
 	val3, err := c.Get(key3)
 	if err != nil {
 		fmt.Println("error with key", key3)
 	}
-	fmt.Println("val3", val3)
+	fmt.Println("val3", val3, "key3", key3)
+
+	var keys []int
+	for i := 0; i < 500; i++ {
+		v := fmt.Sprintf("%d", i)
+		key := c.Add(string(v))
+		keys = append(keys, key)
+	}
+
+	for i, k := range keys {
+		go func(key1, i int) {
+			// fmt.Println("getting val", key1)
+			val, err := c.Get(key1)
+			if err != nil {
+				fmt.Println("error with key init", key1, "val", val, "err", err)
+			}
+
+			if i%3 == 0 {
+				v := fmt.Sprintf("%d", key1)
+				k := c.Add(v)
+				time.Sleep(time.Millisecond * 5)
+				value, err := c.Get(k)
+				if err != nil {
+					fmt.Println("error with key after add", k, "val", value, "error", err)
+				}
+				if value != v {
+					fmt.Println("expected", v, "got", value, "error", err, "key1", k)
+				}
+			}
+			fmt.Println("added value!")
+		}(k, i)
+	}
+	time.Sleep(time.Second * 10)
+
 }

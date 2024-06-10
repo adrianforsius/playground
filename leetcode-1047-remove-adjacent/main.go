@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -9,21 +8,23 @@ func main() {
 	// out := removeDuplicates("abbaca")
 	// fmt.Println(out)
 	out := removeDuplicates("aaaaa")
+	_ = out
 	fmt.Println(out)
 }
 
 func removeDuplicates(s string) string {
 	prev := 0
 	i := 1
+	// panic(1)
 	delete := 0
 	strs := strings.Split(s, "")
 	for i < len(strs) {
-		fmt.Println(prev, i, strs)
+		// fmt.Println(prev, i, strs)
 		if strs[prev] == strs[i] {
 			// fmt.Println(strs)
-			if i == len(strs) - 1 {
-				fmt.Println("last")
-				fmt.Println(prev, i, strs)
+			if prev == len(strs) - 1 {
+				// fmt.Println("last")
+				// fmt.Println(prev, i, strs)
 				strs = strs[:len(strs)-2]
 				continue
 			}

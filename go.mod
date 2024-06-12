@@ -1,6 +1,6 @@
 module github.com/adrianforsius/playground
 
-go 1.22.3
+go 1.22
 
 require (
 	github.com/onsi/ginkgo v1.16.5

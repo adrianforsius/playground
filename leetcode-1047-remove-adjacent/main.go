@@ -1,13 +1,18 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 )
+
+type hello struct {
+	Pub int `json:"pub"`
+}
 
 func main() {
 	// out := removeDuplicates("abbaca")
 	// fmt.Println(out)
-	out := removeDuplicates("aaaaa")
+	out := removeDuplicates("abbaca")
 	_ = out
 	fmt.Println(out)
 }
@@ -22,7 +27,7 @@ func removeDuplicates(s string) string {
 		// fmt.Println(prev, i, strs)
 		if strs[prev] == strs[i] {
 			// fmt.Println(strs)
-			if prev == len(strs) - 1 {
+			if prev == len(strs)-1 {
 				// fmt.Println("last")
 				// fmt.Println(prev, i, strs)
 				strs = strs[:len(strs)-2]
@@ -38,7 +43,7 @@ func removeDuplicates(s string) string {
 					continue
 				}
 				i--
-				prev --
+				prev--
 				continue
 			}
 			i++
@@ -48,4 +53,3 @@ func removeDuplicates(s string) string {
 	}
 	return strings.Join(strs, "")
 }
-
